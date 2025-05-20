@@ -20,16 +20,16 @@ The File Organizer System uses a hybrid architecture for LLM-powered file organi
 
 ```mermaid
 graph TD
-    U[User Uploads File] --> B[Backend: Save File & Metadata]
-    B --> E[Extract Content]
-    E --> M[Generate Embedding]
-    M --> C[Store in Chroma DB]
-    E --> Q[Query Chroma for Similar Files]
-    Q --> RAG[RAG Context Assembly]
+    U["User Uploads File"] --> B["Backend: Save File & Metadata"]
+    B --> E["Extract Content"]
+    E --> M["Generate Embedding"]
+    M --> C["Store in Chroma DB"]
+    E --> Q["Query Chroma for Similar Files"]
+    Q --> RAG["RAG Context Assembly"]
     C --> Q
-    RAG --> MCP1[MCP /api/analyze (Prompt Engineering)]
-    MCP1 --> MCP2[MCP /api/organize (LLM Suggestion)]
-    MCP2 --> S[Suggestion Returned to User]
+    RAG --> MCP_ANALYZE["MCP Analyze (Prompt Engineering)"]
+    MCP_ANALYZE --> MCP_ORGANIZE["MCP Organize (LLM Suggestion)"]
+    MCP_ORGANIZE --> S["Suggestion Returned to User"]
 ```
 
 ---
@@ -89,13 +89,13 @@ Summary:
 
 ```mermaid
 graph TD
-    Sugg[LLM Suggestion] --> F[User Feedback]
-    F --> D{Accept/Modify?}
-    D -->|Accept| P[Record as Positive Example]
-    D -->|Modify| M[Record Modification Pattern]
-    P --> U[Update Suggestion Model]
+    Sugg["LLM Suggestion"] --> F["User Feedback"]
+    F --> D{"Accept/Modify?"}
+    D -->|"Accept"| P["Record as Positive Example"]
+    D -->|"Modify"| M["Record Modification Pattern"]
+    P --> U["Update Suggestion Model"]
     M --> U
-    U --> I[Improved Future Suggestions]
+    U --> I["Improved Future Suggestions"]
 ```
 
 ---
