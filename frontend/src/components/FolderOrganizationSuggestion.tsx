@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button, Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress, Typography, Box, Chip, TextField } from '@mui/material';
 
-const MCP_API = 'http://localhost:8001/api';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/organization';
 
 interface FileItem {
   filename: string;
@@ -33,23 +33,19 @@ const FolderOrganizationSuggestion: React.FC<FolderOrganizationSuggestionProps> 
     setLoading(true);
     setError(null);
     try {
-      const file_prompts = files.map(f => f.originalName || f.filename);
-      const res = await fetch(`${MCP_API}/organize/folder`, {
+      // Use folderId from the first file (all files in the same folder)
+      const folderId = files[0]?.folderId;
+      if (!folderId) throw new Error('No folderId found for files');
+      const res = await fetch(`${API_URL}/folder-suggest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          file_prompts,
-          user_context: {},
-          allowed_tags: [],
-          existing_folders: existingFolders,
-          existing_tags: existingTags,
-        }),
+        body: JSON.stringify({ folderId }),
       });
       if (!res.ok) throw new Error('Failed to get folder suggestion');
       const data = await res.json();
-      setResult(data);
-      setEditName(data.folderName);
-      setEditTags(data.tags);
+      setResult(data.data);
+      setEditName(data.data.folderName);
+      setEditTags(data.data.tags);
     } catch (e: any) {
       setError(e.message || 'Error fetching folder suggestion');
     } finally {

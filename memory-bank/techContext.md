@@ -13,13 +13,15 @@
 - **PostgreSQL**: Relational database for storing file metadata and folder structures
   - Tables for files, folders, user preferences, file tags
   - JSON fields for flexible metadata storage
-- **Sequelize/Prisma**: ORM for database interactions
+- **Prisma**: ORM for database interactions
+- **FastAPI**: Python microservice for LLM-powered organization
 
 ## AI Components
-- **LLM **:
+- **LLM**:
   - Ollama: For easy local model deployment
+  - OpenRouter/OpenAI API: For advanced LLM features
 - **Vector Database**:
-  - Chroma DB 
+  - Chroma DB
 - **RAG Implementation**:
   - LangChain for local RAG pipeline
   - Local embeddings generation
@@ -27,7 +29,7 @@
 ## File Processing
 - **File Type Handling**:
   - PDF processing: PyPDF
-  - Image processing: Sharp 
+  - Image processing: Sharp
   - Text extraction: Various libraries based on file types
 - **Metadata Extraction**:
   - Exiftool for media files
@@ -36,4 +38,5 @@
 ## Local Deployment
 - **Docker**: Containerization for consistent deployment
 - **Local Network**: Configuration for access within local network only
-- **Data Storage**: Local file system with backup options 
+- **Data Storage**: Local file system with backup options
+- **Dockerization**: All components designed for local, containerized deployment 

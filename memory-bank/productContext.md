@@ -18,6 +18,8 @@ Create an intelligent file organization system that automatically categorizes fi
 3. As a user, I want to navigate a hierarchical folder structure, so I can easily find my files later.
 4. As a user, I want the system to understand the context of my files, so similar content is grouped together.
 5. As a user, I want all processing to happen locally, so my data remains private and secure.
+6. As a user, I want batch and folder-level organization suggestions, so I can organize multiple files or entire folders efficiently.
+7. As a user, I want suggestions to be context-aware, using existing folders and tags, so the organization is smarter and more relevant.
 
 ### Extended User Stories
 1. As a user, I want to search for files based on content, not just filenames, so I can find information quickly.
@@ -44,4 +46,5 @@ Create an intelligent file organization system that automatically categorizes fi
 - Advanced AI capabilities without requiring cloud infrastructure
 - Focus on content-based organization rather than just metadata
 - Preview-before-commit approach to maintain user control
+- Batch/folder-level and context-aware organization suggestions
 - Open architecture allowing for community extensions 

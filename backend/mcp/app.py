@@ -7,6 +7,7 @@ from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 from typing import List, Dict, Any
 from fastapi.middleware.cors import CORSMiddleware
+import json
 
 load_dotenv()
 
@@ -40,13 +41,38 @@ class AnalyzeResponse(BaseModel):
 
 @app.post("/api/analyze", response_model=AnalyzeResponse)
 def analyze(req: AnalyzeRequest):
+    # Try to parse the incoming content as a RAG context
+    try:
+        rag = json.loads(req.content)
+        file_content = rag.get('fileContent', '')
+        file_metadata = rag.get('fileMetadata', {})
+        tags = rag.get('tags', [])
+        similar_files = rag.get('similarFiles', [])
+    except Exception:
+        # Fallback: treat as plain content
+        file_content = req.content
+        file_metadata = {}
+        tags = []
+        similar_files = []
+
+    # Build a rich context string for the LLM
+    context_str = f"File Content:\n{file_content}\n\n"
+    if file_metadata:
+        context_str += f"File Metadata: {json.dumps(file_metadata, default=str)}\n"
+    if tags:
+        context_str += f"Tags: {', '.join(tags)}\n"
+    if similar_files:
+        context_str += "Similar Files (metadata):\n"
+        for i, sim in enumerate(similar_files):
+            context_str += f"  {i+1}. {json.dumps(sim, default=str)}\n"
+
     template = PromptTemplate(
         input_variables=["content"],
-        template="Summarize the following file content and extract key topics and keywords:\n\n{content}\n\nSummary:"
+        template="Summarize the following file and its context (metadata, tags, similar files). Extract key topics and keywords, and generate a prompt for organization.\n\n{content}\n\nSummary:"
     )
     chain = LLMChain(llm=llm, prompt=template)
     try:
-        result = chain.run({"content": req.content})
+        result = chain.run({"content": context_str})
         return {"prompt": result.strip()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
