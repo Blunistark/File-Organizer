@@ -1,268 +1,134 @@
-# File Organizer System - LLM Integration Design
+# File Organizer System - LLM Integration Design (Updated)
 
 ## LLM Integration Overview
 
-The File Organizer System leverages a local LLM to analyze file content and suggest appropriate organization structures. This document outlines the design for integrating a local LLM into the system, focusing on performance, accuracy, and resource efficiency.
+The File Organizer System uses a hybrid architecture for LLM-powered file organization, combining a Node.js/Express backend, a FastAPI-based Model Control Platform (MCP) microservice, and a Chroma vector database for Retrieval-Augmented Generation (RAG). The system supports single, batch, and folder-level organization suggestions, all powered by context-aware LLM prompts.
 
-## LLM Selection Criteria
+---
 
-When selecting a local LLM for file organization, the following criteria should be considered:
+## Current Architecture
 
-1. **Performance**: Model should run efficiently on consumer hardware
-2. **Size**: Balance between model size and performance
-3. **Context Window**: Large enough to process substantial portions of files
-4. **Task Specialization**: Good at classification and content understanding
-5. **Resource Usage**: Manageable RAM and CPU requirements
+- **Frontend:** React (Material UI, React Query)
+- **Backend:** Node.js/Express, Prisma, PostgreSQL
+- **LLM Microservice (MCP):** FastAPI, LangChain, OpenRouter/OpenAI API
+- **Vector DB:** Chroma DB (Dockerized, used for RAG context)
+- **Embeddings:** OpenAI API (text-embedding-ada-002) or local model (future)
 
-### Recommended Models
+---
 
-| Model | Size | Context Window | RAM Requirement | Strengths | Use Case |
-|-------|------|---------------|-----------------|-----------|----------|
-| Llama 3 8B | ~4GB | 8K tokens | 8GB | Good balance of size and quality | General purpose, low resource systems |
-| Llama 3 70B | ~35GB | 8K tokens | 48GB+ | High quality, better understanding | High-end systems, complex categorization |
-| Mistral 7B | ~4GB | 8K tokens | 8GB | Efficient, good at instruction following | General purpose, low resource systems |
-| Phi-3 Mini | ~1.8GB | 4K tokens | 4GB | Very small, efficient | Very low resource systems |
-| Mixtral 8x7B | ~24GB | 32K tokens | 32GB+ | Large context window, high quality | Complex document analysis |
-
-## LLM Runtime Environment
-
-### Deployment Options
-
-1. **Ollama**
-   - Easiest deployment with simple API
-   - Good for development and small deployments
-   - Limited customization and optimization
-
-2. **llama.cpp**
-   - Highly optimized for CPU inference
-   - Supports model quantization for reducing memory requirements
-   - More complex setup but better performance
-
-3. **vLLM**
-   - Better for systems with GPU
-   - High throughput for batch processing
-   - More resource intensive
-
-### Recommended Configuration
-
-```yaml
-# Docker Compose Configuration for LLM Service
-services:
-  llm-service:
-    image: ollama/ollama:latest
-    ports:
-      - "11434:11434"
-    volumes:
-      - ./ollama-models:/root/.ollama
-    deploy:
-      resources:
-        limits:
-          memory: 16G
-          cpus: '4'
-    environment:
-      - OLLAMA_HOST=0.0.0.0
-      - OLLAMA_MODELS=llama3:8b
-```
-
-## File Content Analysis Pipeline
-
-### Content Extraction
-
-1. **Text Extraction by File Type**:
-   - PDF: PyPDF, pdf.js
-   - Images: OCR via Tesseract
-   - Office Documents: textract, apache-tika
-   - Plain text: direct reading
-
-2. **Metadata Extraction**:
-   - Exiftool for media files
-   - Document properties from office files
-   - File system metadata (creation date, size, etc.)
-
-### Content Processing
-
-1. **Chunking Strategy**:
-   - Fixed size chunks with overlap
-   - Semantic chunking based on document structure
-   - Adaptive chunking based on content complexity
-
-2. **Preprocessing**:
-   - Remove boilerplate content
-   - Extract key sections (titles, headings, etc.)
-   - Normalize text (spacing, encoding, etc.)
-
-## RAG Implementation
-
-### Vector Database Integration
+## RAG Pipeline Diagram
 
 ```mermaid
 graph TD
-    A[Document Chunks] --> B[Embedding Generation]
-    B --> C[Vector Storage]
-    D[File Upload] --> E[Content Extraction]
-    E --> F[Chunking]
-    F --> A
-    G[Query] --> H[Query Embedding]
-    H --> I[Vector Search]
-    C --> I
-    I --> J[Context Assembly]
-    J --> K[LLM Prompt]
+    U[User Uploads File] --> B[Backend: Save File & Metadata]
+    B --> E[Extract Content]
+    E --> M[Generate Embedding]
+    M --> C[Store in Chroma DB]
+    E --> Q[Query Chroma for Similar Files]
+    Q --> RAG[RAG Context Assembly]
+    C --> Q
+    RAG --> MCP1[MCP /api/analyze (Prompt Engineering)]
+    MCP1 --> MCP2[MCP /api/organize (LLM Suggestion)]
+    MCP2 --> S[Suggestion Returned to User]
 ```
 
-1. **Embedding Model Selection**:
-   - all-MiniLM-L6-v2: Lightweight, good for low resource systems
-   - all-mpnet-base-v2: Better quality but more resource intensive
-   - Local embedding models vs. pre-computed embeddings
+---
 
-2. **Vector Database**:
-   - Chroma DB: Simple setup, Python native
-   - Qdrant: Better performance for larger collections
+## LLM Flow & RAG Pipeline
 
-### RAG Pipeline Components
+### 1. File Upload & Storage
+- User uploads files via the frontend.
+- Backend saves files to disk and stores metadata in PostgreSQL.
 
-1. **Document Processor**:
-   - Handles document chunking
-   - Extracts metadata
-   - Preprocesses text for embedding
+### 2. Content Extraction & Embedding
+- On organization request (single, batch, or folder):
+  - Backend extracts file content (PDF, text, image OCR, etc.).
+  - Generates an embedding for the file content (OpenAI API).
+  - Stores embedding and metadata in Chroma DB (if not already present).
 
-2. **Embedding Manager**:
-   - Generates embeddings for document chunks
-   - Handles batch processing
-   - Optimizes for resource usage
+### 3. RAG Context Retrieval
+- Backend queries Chroma DB for similar files (semantic search).
+- Assembles a RAG context: file content, metadata, tags, and similar files.
 
-3. **Retrieval Engine**:
-   - Performs semantic search
-   - Combines with keyword search for hybrid retrieval
-   - Filters results based on metadata
+### 4. LLM Prompt Engineering (MCP)
+- Backend sends the RAG context (as JSON) to MCP `/api/analyze` (Model 1).
+- MCP parses the context, builds a rich prompt including file content, metadata, tags, and similar files.
+- MCP generates a summary and organization prompt using LangChain and OpenRouter/OpenAI LLM.
+- MCP `/api/organize` (Model 2) receives the prompt and returns folder/tag suggestions, confidence, summary, and reasoning.
 
-4. **Context Assembler**:
-   - Selects most relevant chunks
-   - Formats context for LLM prompt
-   - Manages context window constraints
+### 5. Batch & Folder Organization
+- For batch/folder requests, backend builds a RAG context for each file and aggregates them.
+- Sends all contexts to MCP `/api/organize/batch` or `/api/organize/folder` for group suggestions.
 
-## LLM Prompting Strategy
+---
 
-### Organization Prompt Template
+## Example Prompt Flow
 
-```
-You are an intelligent file organizer assistant. Your task is to analyze the file content and suggest the most appropriate folder structure for organizing it.
-
-### File Information:
-- File Name: {{filename}}
-- File Type: {{filetype}}
-- File Size: {{filesize}}
-- Created Date: {{created_date}}
-- Last Modified: {{last_modified}}
-
-### File Content Sample:
-{{content_sample}}
-
-### Existing Categories:
-{{existing_categories}}
-
-Based on the file content and metadata, determine the best folder location for this file. Provide your answer in the following JSON format:
-
+1. **Backend builds RAG context:**
+```json
 {
-  "suggested_path": "path/to/suggested/folder",
-  "confidence": 0.85,
-  "alternative_paths": ["alt/path/1", "alt/path/2"],
-  "suggested_tags": ["tag1", "tag2", "tag3"],
-  "content_summary": "Brief summary of what this file contains",
-  "reasoning": "Explanation for why this organization was chosen"
+  "fileContent": "...extracted text...",
+  "fileMetadata": { ... },
+  "tags": ["finance", "report"],
+  "similarFiles": [ { ... }, ... ]
 }
 ```
+2. **MCP prompt template:**
+```
+Summarize the following file and its context (metadata, tags, similar files). Extract key topics and keywords, and generate a prompt for organization.
 
-### Performance Optimization
+{content}
 
-1. **Batched Processing**:
-   - Group similar files for batched inference
-   - Process files during system idle time
+Summary:
+```
+3. **LLM output is used as the organization prompt for Model 2.**
 
-2. **Caching Strategy**:
-   - Cache embeddings for document chunks
-   - Cache similar document analyses
-   - Cache LLM responses for similar queries
-
-3. **Progressive Loading**:
-   - Start with small chunks of large files
-   - Progressively analyze more content as needed
-   - Use metadata-based suggestions for initial quick results
+---
 
 ## Feedback Loop and Improvement
 
 ```mermaid
 graph TD
-    A[LLM Suggestion] --> B[User Feedback]
-    B --> C{Accept/Modify?}
-    C -->|Accept| D[Record as Positive Example]
-    C -->|Modify| E[Record Modification Pattern]
-    D --> F[Update Suggestion Model]
-    E --> F
-    F --> G[Improved Future Suggestions]
+    Sugg[LLM Suggestion] --> F[User Feedback]
+    F --> D{Accept/Modify?}
+    D -->|Accept| P[Record as Positive Example]
+    D -->|Modify| M[Record Modification Pattern]
+    P --> U[Update Suggestion Model]
+    M --> U
+    U --> I[Improved Future Suggestions]
 ```
 
-1. **User Feedback Collection**:
-   - Track acceptance rate of suggestions
-   - Record manual changes to suggestions
-   - Collect explicit feedback on quality
+---
 
-2. **Model Adaptation**:
-   - Fine-tune prompts based on user patterns
-   - Adjust relevance criteria based on feedback
-   - Learn user-specific organization preferences
+## Deployment & Configuration
 
-## Error Handling and Fallbacks
+- **Chroma DB:**
+  - Run via Docker: `docker run -d -p 8000:8000 ghcr.io/chroma-core/chroma:latest`
+  - Set `CHROMA_URL=http://localhost:8000` in backend `.env`
+- **OpenAI API:**
+  - Set `OPENAI_API_KEY` in backend `.env`
+- **MCP:**
+  - FastAPI app, uses LangChain and OpenRouter/OpenAI for LLM calls
+  - Receives RAG context and returns suggestions
 
-1. **LLM Service Unavailability**:
-   - Fallback to basic metadata-based organization
-   - Queue analysis tasks for when service is available
-   - Provide manual organization options
+---
 
-2. **Content Extraction Failures**:
-   - Fallback to filename and metadata analysis
-   - Log extraction errors for review
-   - Notify user of limited analysis
+## Supported Features
+- Single-file, batch, and folder-level organization suggestions
+- Context-aware (RAG) LLM prompting
+- Tag and folder suggestions with confidence and reasoning
+- Modern, responsive UI for all organization flows
 
-3. **Response Validation**:
-   - Validate LLM output format
-   - Handle hallucinations and incorrect suggestions
-   - Implement confidence thresholds for suggestions
+---
 
-## Resource Management
+## Future Enhancements
+- Local embedding model support (e.g., all-MiniLM-L6-v2)
+- More advanced chunking and context assembly
+- User feedback loop for continual improvement
+- Caching and performance optimizations
 
-1. **Memory Usage Control**:
-   - Implement model unloading when idle
-   - Use quantized models for lower memory footprint
-   - Limit batch sizes based on available memory
+---
 
-2. **Processing Prioritization**:
-   - Prioritize user-initiated requests
-   - Background processing for batch uploads
-   - Throttle processing during high system load
-
-3. **Storage Efficiency**:
-   - Compress embeddings where possible
-   - Implement TTL for cached results
-   - Prune embeddings for deleted files
-
-## Implementation Roadmap
-
-1. **Phase 1: Basic LLM Integration**
-   - Set up LLM service with Ollama
-   - Implement basic text extraction for common file types
-   - Create simple organization prompts
-
-2. **Phase 2: RAG Enhancement**
-   - Implement vector database
-   - Create embedding pipeline
-   - Develop context retrieval system
-
-3. **Phase 3: Performance Optimization**
-   - Implement caching strategies
-   - Optimize for resource usage
-   - Add batch processing capabilities
-
-4. **Phase 4: Feedback and Improvement**
-   - Add user feedback collection
-   - Implement prompt refinement system
-   - Create adaptation mechanisms 
+## References
+- See `README.md` for setup and usage
+- See backend and MCP source for implementation details 
