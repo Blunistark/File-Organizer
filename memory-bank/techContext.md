@@ -16,20 +16,18 @@
 - **Sequelize/Prisma**: ORM for database interactions
 
 ## AI Components
-- **LLM Options**:
-  - llama.cpp: For running local LLaMA models
+- **LLM **:
   - Ollama: For easy local model deployment
-  - LocalAI: Alternative for running local models
 - **Vector Database**:
-  - Chroma DB or Qdrant for local vector storage
+  - Chroma DB 
 - **RAG Implementation**:
-  - LangChain or LlamaIndex for local RAG pipeline
+  - LangChain for local RAG pipeline
   - Local embeddings generation
 
 ## File Processing
 - **File Type Handling**:
-  - PDF processing: pdf.js or PyPDF
-  - Image processing: Sharp or OpenCV
+  - PDF processing: PyPDF
+  - Image processing: Sharp 
   - Text extraction: Various libraries based on file types
 - **Metadata Extraction**:
   - Exiftool for media files
