@@ -1,16 +1,19 @@
 import React, { useRef, useState } from 'react';
-import { Box, Button, Typography, LinearProgress, Paper, IconButton, List, ListItem, ListItemAvatar, ListItemText, Avatar, Snackbar, Tooltip } from '@mui/material';
+import { Box, Button, Typography, LinearProgress, Paper, IconButton, List, ListItem, ListItemAvatar, ListItemText, Avatar, Snackbar, Tooltip, useTheme } from '@mui/material';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import ImageIcon from '@mui/icons-material/Image';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import DeleteIcon from '@mui/icons-material/Delete';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload'; // Added for drag-drop zone
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/files/upload';
 
-const getFileIcon = (file: File) => {
-  if (file.type.startsWith('image/')) return <ImageIcon />;
-  if (file.type === 'application/pdf') return <PictureAsPdfIcon />;
-  return <InsertDriveFileIcon />;
+// Updated getFileIcon to use theme colors
+const GetFileIcon: React.FC<{ file: File }> = ({ file }) => {
+  const theme = useTheme();
+  if (file.type.startsWith('image/')) return <ImageIcon sx={{ color: theme.palette.secondary.main }} />;
+  if (file.type === 'application/pdf') return <PictureAsPdfIcon sx={{ color: theme.palette.primary.main }} />; // PDFs as Documents (Blue)
+  return <InsertDriveFileIcon sx={{ color: theme.palette.primary.main }} />; // Default to Document (Blue)
 };
 
 const FileUpload: React.FC = () => {
@@ -21,6 +24,7 @@ const FileUpload: React.FC = () => {
   const [uploadStatus, setUploadStatus] = useState<{ [name: string]: 'pending' | 'uploading' | 'success' | 'error' }>({});
   const [uploading, setUploading] = useState(false);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; color: 'success' | 'error' }>({ open: false, message: '', color: 'success' });
+  const theme = useTheme(); // Hook to access theme
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -93,8 +97,8 @@ const FileUpload: React.FC = () => {
       }
     }
     setUploading(false);
-    setSelectedFiles([]);
-    setUploadProgress({});
+    setSelectedFiles([]); // Clear files after upload attempt
+    setUploadProgress({}); // Clear progress
     setSnackbar({
       open: true,
       message: allSuccess ? 'All files uploaded successfully!' : 'Some files failed to upload.',
@@ -103,19 +107,34 @@ const FileUpload: React.FC = () => {
   };
 
   return (
-    <Paper elevation={3} sx={{ p: 3, maxWidth: 500, margin: '2rem auto' }}>
+    <Paper 
+      elevation={0} // Use boxShadow for Level 2 shadow as per style guide
+      sx={{ 
+        p: theme.spacing(2), // 16px padding
+        maxWidth: 500, 
+        margin: '2rem auto',
+        backgroundColor: theme.palette.background.paper, // Surface color
+        borderRadius: theme.spacing(1), // 8px border radius (assuming theme.spacing(1) = 8px, or use theme.shape.borderRadius * 2)
+        boxShadow: theme.shadows[2], // Level 2 shadow
+      }}
+    >
       <Box
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         sx={{
-          border: dragActive ? '2px solid #1976d2' : '2px dashed #aaa',
-          borderRadius: 2,
-          p: 4,
+          border: dragActive ? `2px solid ${theme.palette.primary.main}` : `2px dashed ${theme.palette.text.secondary}`,
+          borderRadius: theme.spacing(1), // 8px, matching Paper
+          p: theme.spacing(4), // 32px padding
           textAlign: 'center',
-          background: dragActive ? '#e3f2fd' : '#fafafa',
+          background: dragActive ? theme.palette.action.hover : theme.palette.background.default,
           cursor: 'pointer',
           transition: 'border 0.2s, background 0.2s',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: 200, // Ensure a decent height for the drop zone
         }}
         onClick={() => fileInputRef.current?.click()}
       >
@@ -126,35 +145,62 @@ const FileUpload: React.FC = () => {
           onChange={handleFileChange}
           multiple
         />
-        <Typography variant="h6" gutterBottom>
+        <CloudUploadIcon sx={{ fontSize: 60, color: theme.palette.text.secondary, mb: 2 }} />
+        <Typography variant="h4" gutterBottom sx={{ color: theme.palette.text.primary }}>
           Drag & drop files here, or click to select
         </Typography>
         {selectedFiles.length > 0 && (
-          <List dense>
+          <List dense sx={{ width: '100%', mt: 2, background: theme.palette.background.paper, borderRadius: theme.spacing(0.5) }}>
             {selectedFiles.map((file, idx) => (
-              <ListItem key={file.name} secondaryAction={
-                <Tooltip title="Remove">
-                  <IconButton edge="end" onClick={e => { e.stopPropagation(); handleRemoveFile(idx); }}>
-                    <DeleteIcon />
-                  </IconButton>
-                </Tooltip>
-              }>
+              <ListItem 
+                key={file.name} 
+                secondaryAction={
+                  <Tooltip title="Remove">
+                    {/* Ensure IconButton click doesn't propagate to Box */}
+                    <IconButton edge="end" onClick={e => { e.stopPropagation(); handleRemoveFile(idx); }}>
+                      <DeleteIcon color="action" />
+                    </IconButton>
+                  </Tooltip>
+                }
+              >
                 <ListItemAvatar>
-                  <Avatar>
-                    {getFileIcon(file)}
+                  <Avatar sx={{ bgcolor: 'transparent' }}>
+                    <GetFileIcon file={file} />
                   </Avatar>
                 </ListItemAvatar>
                 <ListItemText
                   primary={file.name}
                   secondary={`${(file.size / 1024).toFixed(1)} KB`}
+                  primaryTypographyProps={{ sx: { color: theme.palette.text.primary } }}
+                  secondaryTypographyProps={{ sx: { color: theme.palette.text.secondary } }}
                 />
                 {uploadStatus[file.name] && (
-                  <Box sx={{ minWidth: 80 }}>
-                    <Typography variant="caption" color={uploadStatus[file.name] === 'success' ? 'success.main' : uploadStatus[file.name] === 'error' ? 'error.main' : 'textSecondary'}>
-                      {uploadStatus[file.name] === 'success' ? 'Uploaded' : uploadStatus[file.name] === 'error' ? 'Error' : ''}
+                  <Box sx={{ minWidth: 80, textAlign: 'right' }}>
+                    <Typography 
+                      variant="caption" 
+                      color={uploadStatus[file.name] === 'success' 
+                        ? theme.palette.secondary.main // Green for success
+                        : uploadStatus[file.name] === 'error' 
+                        ? theme.palette.error.main // Red for error
+                        : theme.palette.text.secondary
+                      }
+                    >
+                      {uploadStatus[file.name] === 'success' ? 'Uploaded' : uploadStatus[file.name] === 'error' ? 'Error' : 'Pending...'}
                     </Typography>
                     {uploadStatus[file.name] === 'uploading' && (
-                      <LinearProgress variant="determinate" value={uploadProgress[file.name] || 0} sx={{ height: 6, mt: 0.5 }} />
+                      <LinearProgress 
+                        variant="determinate" 
+                        value={uploadProgress[file.name] || 0} 
+                        sx={{ 
+                          height: 6, 
+                          mt: 0.5, 
+                          borderRadius: 3,
+                          bgcolor: theme.palette.grey[300], // Lighter background for progress bar
+                          '& .MuiLinearProgress-bar': {
+                            bgcolor: theme.palette.primary.main, // Primary color for progress
+                          }
+                        }} 
+                      />
                     )}
                   </Box>
                 )}
@@ -163,13 +209,18 @@ const FileUpload: React.FC = () => {
           </List>
         )}
       </Box>
-      <Box mt={2}>
+      <Box mt={theme.spacing(2)}> {/* 16px margin top */}
         <Button
           variant="contained"
           color="primary"
           fullWidth
           disabled={!selectedFiles.length || uploading}
           onClick={handleUpload}
+          sx={{ 
+            height: '40px', 
+            padding: `${theme.spacing(1)} ${theme.spacing(2)}`, // 8px 16px
+            // Typography and borderRadius should be handled by the global theme's button settings
+          }}
         >
           {uploading ? 'Uploading...' : 'Upload Files'}
         </Button>
@@ -180,10 +231,16 @@ const FileUpload: React.FC = () => {
         onClose={() => setSnackbar(s => ({ ...s, open: false }))}
         message={snackbar.message}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        ContentProps={{ sx: { bgcolor: snackbar.color === 'success' ? 'success.main' : 'error.main', color: 'white' } }}
+        ContentProps={{ 
+          sx: { 
+            bgcolor: snackbar.color === 'success' ? theme.palette.secondary.main : theme.palette.error.main, 
+            color: theme.palette.common.white, // Ensure text is white for contrast
+            typography: 'body1' // Ensure typography matches style guide
+          } 
+        }}
       />
     </Paper>
   );
 };
 
-export default FileUpload; 
+export default FileUpload;
