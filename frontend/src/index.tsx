@@ -13,11 +13,9 @@ const theme = createTheme({
     secondary: {
       main: '#34A853',
     },
-    // Accent color can be added as a custom field if needed, or mapped to secondary
-    // For now, let's use secondary as the accent color or rely on primary/secondary for accents.
-    // accent: {
-    //   main: '#FBBC05',
-    // },
+    accent: { // Added accent color
+      main: '#FBBC05', // Yellow
+    },
     error: {
       main: '#EA4335',
     },
